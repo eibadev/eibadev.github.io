@@ -32,8 +32,10 @@ app/
 │── frontend/
 │   └── index.html
 │── functions/
+│   ├── get_stock_price.py
 │   ├── get_weather.py
 │── tools/
+│   ├── get_stock_price_tool.py
 │   ├── get_weather_tool.py
 │── main.py
 │── requirements.txt
@@ -49,15 +51,20 @@ The core of the chatbot lives in `main.py`. Let's break it down step by step.
 ```python
 import os
 import json
+import logging
 from flask import Flask, request, jsonify, send_from_directory
 from openai import OpenAI
 import importlib
+
+# Configure logging to print to stdout
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s]: %(message)s", handlers=[logging.StreamHandler()])
 
 app = Flask(__name__)
 client = OpenAI()
 ```
 
-Here, we initialize Flask for our web server and create an OpenAI client to handle API requests.
+Here, we initialize Flask for our web server, set up logging for better debugging, and create an OpenAI client to handle API requests.
+
 
 ### 2. Loading Functions and Tools Dynamically
 
@@ -67,10 +74,11 @@ TOOLS_DIR = os.path.join(os.path.dirname(__file__), "tools")
 FUNCTIONS_DIR = os.path.join(os.path.dirname(__file__), "functions")
 
 def load_modules(directory):
+    """Dynamically loads all Python modules in a given directory."""
     modules = {}
     for filename in os.listdir(directory):
         if filename.endswith('.py') and filename != '__init__.py':
-            module_name = f"{directory.split('/')[-1]}.{filename[:-3]}"
+            module_name = f"{directory.split(os.sep)[-1]}.{filename[:-3]}"
             module = importlib.import_module(module_name)
             for attr in dir(module):
                 obj = getattr(module, attr)
@@ -81,78 +89,15 @@ def load_modules(directory):
 # Load functions and tools
 functions = load_modules(FUNCTIONS_DIR)
 tools_definitions = load_modules(TOOLS_DIR)
-
-tools = []
-for tool_name, tool in tools_definitions.items():
-    tool_schema = tool()  # Assuming each tool script returns a dictionary defining the tool
-    tools.append(tool_schema)
+tools = [tool() for tool in tools_definitions.values()]
 ```
 
 This dynamically imports all Python scripts inside `functions/` and `tools/`, making it easy to extend the chatbot.
 
 
-### 3. Example Functions script
+### 3. Handling Chat Requests
 
-Each function is defined in its own script and loaded dynamically.
-
-```python
-import requests
-
-def get_weather(location: str) -> str:
-    """
-    Fetches weather information for the given location.
-    
-    Args:
-        location (str): The name of the city to fetch weather data for.
-    
-    Returns:
-        str: A string describing the weather conditions.
-    """
-    
-    api_url = f"https://wttr.in/{location}?format=%C+%t"
-    try:
-        response = requests.get(api_url)
-        if response.status_code == 200:
-            return f"Weather in {location}: {response.text}"
-        else:
-            return f"Could not retrieve weather for {location}."
-    except Exception as e:
-        return f"Error fetching weather: {str(e)}"
-
-```
-
-
-### 4. Example Tools script
-
-Each tool is defined in its own script and loaded dynamically.
-
-```python
-def get_weather_tool():
-    """
-    Defines the tool schema for fetching weather information.
-    """
-    return {
-        "type": "function",
-        "function": {
-            "name": "get_weather",
-            "description": "Retrieve weather information for a specified location.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "location": {
-                        "type": "string",
-                        "description": "Name of the city to get weather information for."
-                    }
-                },
-                "required": ["location"],
-                "additionalProperties": False
-            },
-            "strict": True
-        }
-    }
-```
-
-### 4. Handling Chat Requests
+This function receives user input and sends it to OpenAI's API.
 
 ```python
 @app.route("/chat", methods=["POST"])
@@ -169,53 +114,58 @@ def chat():
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=messages,
-        tools=tools
+        tools=tools,
+        tool_choice="auto"
     )
 
     response_message = response.choices[0].message
 ```
 
-This function receives user input and sends it to OpenAI's API.
+
 If OpenAI decides to call a function, we execute it and append the result to the chat history.
 After executing the function, we ask OpenAI for a final response.
 
-### 5. Handling Function Calls
+### 4. Handling Function Calls
 
 ```python
-    # Check if the model decided to call a function
-    if response_message.tool_calls:
-        for tool_call in response_message.tool_calls:
-            function_name = tool_call.function.name
-            function_args = json.loads(tool_call.function.arguments)
-            
-            # Execute the corresponding function
-            if function_name in functions:
-                function_response = functions[function_name](**function_args)
-            else:
-                function_response = f"Function '{function_name}' is not recognized."
+  # Check if the model decided to call a function
+  if response_message.tool_calls:
+      tool_calls_responses = []
+      for tool_call in response_message.tool_calls:
+          function_name = tool_call.function.name
+          function_args = json.loads(tool_call.function.arguments)
 
-            # Append the function's response to the conversation
-            messages.append(response_message)
-            messages.append({
-                "role": "tool",
-                "tool_call_id": tool_call.id,
-                "content": function_response
-            })
+          logging.info(f"Model called function: {function_name} with args: {function_args}")  # Log function call
 
-        # Get the model's response after function execution
-        second_response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=messages
-        )
-        final_text = second_response.choices[0].message.content
-    else:
-        # If no function was called, use the model's direct response
-        final_text = response_message.content
+          if function_name in functions:
+              function_response = functions[function_name](**function_args)
+              logging.info(f"Function response: {function_response}")  # Log function response
+          else:
+              function_response = {"error": f"Function '{function_name}' is not recognized"}
 
-    return jsonify({"reply": final_text})
+          tool_calls_responses.append({
+              "role": "tool",
+              "tool_call_id": tool_call.id,
+              "content": json.dumps(function_response)
+          })
+
+      messages.append(response_message)
+      messages.extend(tool_calls_responses)
+
+      second_response = client.chat.completions.create(
+          model="gpt-4o-mini",
+          messages=messages
+      )
+      final_text = second_response.choices[0].message.content
+  else:
+      final_text = response_message.content
+
+  logging.info(f"Final response to user: {final_text}")  # Log chatbot's response
+
+  return jsonify({"reply": final_text})
 ```
 
-### 7. Serving the Frontend
+### 5. Serving the Frontend
 
 ```python
 @app.route("/")
@@ -225,7 +175,7 @@ def serve_index():
 
 This serves the chatbot's front-end where we can test the functions.
 
-### 8. Running the App
+### 6. Running the App
 
 ```python
 if __name__ == "__main__":
@@ -251,14 +201,14 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 # Expose port 5000 for the Flask app
 EXPOSE 5000
 
-# Run the Flask app
+# By default, run the Flask app
 CMD ["python", "/app/main.py"]
 
 ```
 
 ## The Frontend
 
-To keep things simple, I made a small HTML page (`frontend/index.html`) where users can chat with the bot:
+To keep things simple, I made a simple HTML page (`frontend/index.html`) where users can chat with the bot:
 
 <details>
   <summary>Click to expand</summary>
@@ -454,6 +404,114 @@ Build and run the container:
 docker build -t my-chatbot .
 docker run -p 5000:5000 e OPENAI_API_KEY=<YOUR_OPENAI_API_KEY> -v $(pwd)/app:/app my-chatbot
 ```
+
+### 7. Example Functions scripts
+
+Each function is defined in its own script file and loaded dynamically.
+
+<details>
+  <summary>Click to expand</summary>
+
+```python
+import requests
+
+def get_weather(location: str) -> str:
+    """
+    Fetches weather information for the given location.
+    
+    Args:
+        location (str): The name of the city to fetch weather data for.
+    
+    Returns:
+        str: A string describing the weather conditions.
+    """
+    
+    api_url = f"https://wttr.in/{location}?format=%C+%t"
+    try:
+        response = requests.get(api_url)
+        if response.status_code == 200:
+            return f"Weather in {location}: {response.text}"
+        else:
+            return f"Could not retrieve weather for {location}."
+    except Exception as e:
+        return f"Error fetching weather: {str(e)}"
+
+```
+
+```python
+def get_stock_price(ticker: str) -> str:
+  """
+  Mock function to simulate fetching stock price information for the given ticker symbol.
+  
+  Args:
+      ticker (str): The stock ticker symbol to fetch price data for.
+  
+  Returns:
+      str: A string describing the stock price.
+  """
+  mock_responses = {
+      "AAPL": "Stock price for AAPL: $150.00",
+      "GOOGL": "Stock price for GOOGL: $2800.00",
+      "AMZN": "Stock price for AMZN: $3400.00"
+  }
+  return mock_responses.get(ticker, f"Stock price for {ticker}: Data not available")
+```
+</details>
+
+### 8. Example Tools script
+
+Each tool is defined in its own script file and loaded dynamically.
+
+<details>
+  <summary>Click to expand</summary>
+
+```python
+def get_weather_tool():
+    """
+    Defines the tool schema for fetching weather information.
+    """
+    return {
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Retrieve weather information for a specified location.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "Name of the city to get weather information for."
+                    }
+                },
+                "required": ["location"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    }
+```
+
+```python
+def get_stock_price_tool():
+    """
+    Tool schema for fetching stock price information.
+    """
+    return {
+        "type": "function",
+        "function": {
+            "name": "get_stock_price",
+            "description": "Fetches stock price information for the given ticker symbol.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "ticker": {"type": "string", "description": "The stock ticker symbol to fetch price data for."}
+                },
+                "required": ["ticker"]
+            }
+        }
+    }
+```
+</details>
 
 
 ## Conclusion
