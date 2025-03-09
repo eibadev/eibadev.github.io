@@ -1,0 +1,195 @@
+---
+title: 'An OpenAI Function Calls Framework'
+description: 'Testing OpenAI Function Calls with a Simple Framework'
+pubDate: 'Jul 02 2022'
+heroImage: '../../assets/images/placeholder-about.jpg'
+category: 'Tech'
+tags: ['AI', 'LLM', 'Python']
+---
+
+# Testing OpenAI Function Calls with a Simple Framework
+
+I've been playing around with OpenAI's function calling feature and wanted a simple framework to test my own function calls in a structured way. Instead of manually handling API requests, I wanted an easy-to-use setup where I could define tools and functions separately and have my chatbot intelligently decide when to call them. Here's how I built it.
+
+## The Idea
+
+I wanted a local chatbot that:
+
+1. Receives user messages via a web interface.
+2. Sends the messages to OpenAI's API, which decides if a function needs to be called.
+3. Calls the relevant function if needed and returns the result.
+4. Displays everything in a simple front-end.
+
+To keep things modular, I placed function definitions in a `functions/` folder and tool schemas in a `tools/` folder. This way, adding new functionality is just a matter of dropping in a new Python file.
+
+## Project Structure
+
+```
+app/
+│── frontend/
+│   └── index.html
+│── functions/
+│   ├── get_weather.py
+│── tools/
+│   ├── get_weather_tool.py
+│── main.py
+│── requirements.txt
+└── Dockerfile
+```
+
+## Setting Up the Backend
+
+The core of the chatbot lives in `main.py`. This Flask-based server:
+
+- Loads function definitions dynamically from `functions/`
+- Loads tool schemas from `tools/`
+- Calls OpenAI's API with function calling enabled
+- Executes functions if the model requests it
+- Sends the response back to the user
+
+Here’s a breakdown of how it works:
+
+### Loading Functions and Tools
+
+Each function (like `get_weather`) is stored in `functions/`, and each tool definition (which tells OpenAI what functions exist) is stored in `tools/`. We load them dynamically using Python’s `importlib`:
+
+```python
+import importlib
+import os
+
+def load_modules(directory):
+    modules = {}
+    for filename in os.listdir(directory):
+        if filename.endswith('.py') and filename != '__init__.py':
+            module_name = f"{directory.split('/')[-1]}.{filename[:-3]}"
+            module = importlib.import_module(module_name)
+            for attr in dir(module):
+                obj = getattr(module, attr)
+                if callable(obj):
+                    modules[obj.__name__] = obj
+    return modules
+```
+
+### The Chat API
+
+The chatbot receives a user message and sends it to OpenAI:
+
+```python
+@app.route("/chat", methods=["POST"])
+def chat():
+    data = request.get_json()
+    user_message = data.get("message", "")
+
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": user_message}
+    ]
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=messages,
+        tools=tools
+    )
+```
+
+If the model wants to call a function, we execute it:
+
+```python
+if response_message.tool_calls:
+    for tool_call in response_message.tool_calls:
+        function_name = tool_call.function.name
+        function_args = json.loads(tool_call.function.arguments)
+        
+        if function_name in functions:
+            function_response = functions[function_name](**function_args)
+        else:
+            function_response = f"Function '{function_name}' is not recognized."
+
+        messages.append(response_message)
+        messages.append({
+            "role": "tool",
+            "tool_call_id": tool_call.id,
+            "content": function_response
+        })
+```
+
+The response is then returned to the user.
+
+## Adding a Function: Get Weather
+
+To test this, I created a simple weather lookup function in `functions/get_weather.py`:
+
+```python
+import requests
+
+def get_weather(location: str) -> str:
+    api_url = f"https://wttr.in/{location}?format=%C+%t"
+    try:
+        response = requests.get(api_url)
+        if response.status_code == 200:
+            return f"Weather in {location}: {response.text}"
+        else:
+            return f"Could not retrieve weather for {location}."
+    except Exception as e:
+        return f"Error fetching weather: {str(e)}"
+```
+
+The corresponding tool schema in `tools/get_weather_tool.py` tells OpenAI about this function:
+
+```python
+def get_weather_tool():
+    return {
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Retrieve weather information for a specified location.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "Name of the city to get weather information for."
+                    }
+                },
+                "required": ["location"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    }
+```
+
+## Running the App in Docker
+
+To make deployment easy, I created a `Dockerfile`:
+
+```dockerfile
+FROM python:3.9-slim
+WORKDIR /app
+COPY app/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
+EXPOSE 5000
+CMD ["python", "/app/main.py"]
+```
+
+Build and run the container:
+
+```sh
+docker build -t my-chatbot .
+docker run -p 5000:5000 my-chatbot
+```
+
+## The Frontend
+
+To keep things simple, I made a small HTML page (`frontend/index.html`) where users can chat with the bot:
+
+```html
+<input type="text" id="user-input" placeholder="Type your message..." onkeypress="handleKeyPress(event)" />
+<button onclick="sendMessage()">Send</button>
+```
+
+It sends messages to `/chat`, and displays the responses dynamically.
+
+## Conclusion
+
+This setup lets me quickly test new function calls without manually writing API requests. The modular structure makes it easy to add new functions and tools. If I want to extend it, I can just drop in new `.py` files in `functions/` and `tools/`, and the chatbot will automatically pick them up.
