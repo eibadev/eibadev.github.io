@@ -4,7 +4,7 @@ const { src, width = "300px", height = "auto" } = Astro.props;
 
 <div class="video-container">
   <video autoplay loop muted playsinline>
-    <source src={src} type="video/webp" />
+    <source src={src} type="video/webm" />
     Your browser does not support the video tag.
   </video>
 </div>
@@ -21,6 +21,6 @@ const { src, width = "300px", height = "auto" } = Astro.props;
   width: {width};
   height: {height};
   max-width: 100%;
-  border-radius: 10px; /* Optional: Adds rounded corners */
+  border-radius: 10px;
 }
 </style>
