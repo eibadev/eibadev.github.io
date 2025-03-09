@@ -9,20 +9,22 @@ tags: ['AI', 'LLM', 'Python']
 
 # Testing OpenAI Function Calls with a Simple Framework
 
-I've been playing around with OpenAI's function calling feature and wanted a simple framework to test my own function calls in a structured way. I wanted an easy-to-use setup where I could define tools and functions separately and have my chatbot intelligently decide when to call them.
-I also decided to build everything around a container image, which should make it easy to spin everything up in any environment, while keeping the actual code outside of the container, removing the need to constantly having to rebuild the container during development. Here's how I built it.
+I've been experimenting with OpenAI's function calling feature and wanted a way to test my own function calls in a simple and structured manner. I aimed for a lightweight framework that would allow me to define tools and functions separately while letting my chatbot intelligently decide when to call them.  
+
+To make the setup portable and efficient, I decided to build everything around a container image. This approach ensures that:  
+- The entire system can be easily spun up in any environment.  
+- The actual code remains outside the container, avoiding unnecessary rebuilds during development.  
 
 ## The Idea
 
 OpenAI's API platform has its own Playground where you can test function calling, but I wanted a way to be able to test my own local code. The goal was to have a chatbot that:
 
-1. Receives user messages via a web interface.
-2. Sends the messages to OpenAI's API, which decides if a function needs to be called.
-3. Calls the relevant function if needed and returns the result.
-4. Displays everything in a simple front-end.
+1. Receives user messages via a web interface.  
+2. Sends the messages to OpenAI's API, which decides if a function needs to be called.  
+3. Calls the relevant function if needed and returns the result.  
+4. Displays everything in a simple front-end.  
 
-To keep things modular, I placed function definitions in a `functions/` folder and tool schemas in a `tools/` folder. This way, adding new functionality is just a matter of dropping in a new Python file.
-
+To keep things modular, I placed function definitions in a `functions/` folder and tool schemas in a `tools/` folder. This way, adding new functionality is just a matter of dropping in a new Python file.  
 ## Project Structure
 
 ```
