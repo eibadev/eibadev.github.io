@@ -97,7 +97,6 @@ This dynamically imports all Python scripts inside `functions/` and `tools/`, ma
 
 ### 3. Handling Chat Requests
 
-This function receives user input and sends it to OpenAI's API.
 
 ```python
 @app.route("/chat", methods=["POST"])
@@ -121,9 +120,9 @@ def chat():
     response_message = response.choices[0].message
 ```
 
-
+This function receives user input and sends it to OpenAI's API.
 If OpenAI decides to call a function, we execute it and append the result to the chat history.
-After executing the function, we ask OpenAI for a final response.
+
 
 ### 4. Handling Function Calls
 
@@ -164,6 +163,8 @@ After executing the function, we ask OpenAI for a final response.
 
   return jsonify({"reply": final_text})
 ```
+
+After executing the function, we ask OpenAI for a final response.
 
 ### 5. Serving the Frontend
 
