@@ -11,7 +11,7 @@ interface SiteConfig {
 
 export const siteConfig: SiteConfig = {
 	site: 'https://blog.eiba.dev/', // Write here your website url
-	author: 'eibagit', // Site author
+	author: 'eibadev', // Site author
 	title: 'Astro Theme OpenBlog', // Site title.
 	description: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.', // Description to display in the meta tags
 	lang: 'en-GB',
