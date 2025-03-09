@@ -19,7 +19,7 @@ const URL = Astro.url.href
 		</li>
 		<li>
             <a
-                href={`https://bsky.app/share?text=${message + ' ' + URL}`}
+                href={`https://bsky.app/intent/compose?text=${message + ' ' + URL}`}
                 aria-label='Share on Bluesky'
             >
                 <BlueskyColorIcon /></a
