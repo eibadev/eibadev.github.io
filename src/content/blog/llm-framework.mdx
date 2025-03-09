@@ -204,11 +204,13 @@ EXPOSE 5000
 
 # By default, run the Flask app
 CMD ["python", "/app/main.py"]
-
 ```
 
-We use a lightweight Python image and a requirements.txt file that includes the modules that our app requires:
-```bash title="requirements.txt"
+The container consists of a lightweight Python image and a requirements.txt file that includes the modules that our app requires.
+We then run pip install pointing to our requirements.txt file, which installs the requried modules in the container.
+
+#### requirements.txt
+```bash
 Flask
 openai
 requests
@@ -216,7 +218,7 @@ requests
 
 ## The Frontend
 
-To keep things simple, I made a simple HTML page (`frontend/index.html`) where users can chat with the bot:
+I then made a simple HTML page (`frontend/index.html`) where users can chat with the bot:
 
 <details>
   <summary>Click to expand</summary>
