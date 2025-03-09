@@ -12,10 +12,10 @@ interface SiteConfig {
 export const siteConfig: SiteConfig = {
 	site: 'https://blog.eiba.dev/', // Write here your website url
 	author: 'eibadev', // Site author
-	title: 'Astro Theme OpenBlog', // Site title.
-	description: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.', // Description to display in the meta tags
-	lang: 'en-GB',
-	ogLocale: 'en_GB',
+	title: 'blog.eiba.dev', // Site title.
+	description: 'A blog about tech and everything fun.', // Description to display in the meta tags
+	lang: 'en-US',
+	ogLocale: 'en_US',
 	shareMessage: 'Share this post', // Message to share a post on social media
 	paginationSize: 6 // Number of posts per page
 }
