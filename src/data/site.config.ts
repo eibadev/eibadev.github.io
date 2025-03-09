@@ -13,9 +13,9 @@ export const siteConfig: SiteConfig = {
 	site: 'https://blog.eiba.dev/', // Write here your website url
 	author: 'eibadev', // Site author
 	title: 'blog.eiba.dev', // Site title.
-	description: 'A blog about tech and everything fun.', // Description to display in the meta tags
+	description: 'A blog about tech and other fun things.',
 	lang: 'en-US',
 	ogLocale: 'en_US',
-	shareMessage: 'Share this post', // Message to share a post on social media
+	shareMessage: 'Take a look at this post from eibadev', // Message to share a post on social media
 	paginationSize: 6 // Number of posts per page
 }
