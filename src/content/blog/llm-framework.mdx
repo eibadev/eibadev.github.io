@@ -9,11 +9,11 @@ tags: ['AI', 'LLM', 'Python']
 
 # Testing OpenAI Function Calls with a Simple Framework
 
-I've been playing around with OpenAI's function calling feature and wanted a simple framework to test my own function calls in a structured way. Instead of manually handling API requests, I wanted an easy-to-use setup where I could define tools and functions separately and have my chatbot intelligently decide when to call them. Here's how I built it.
+I've been playing around with OpenAI's function calling feature and wanted a simple framework to test my own function calls in a structured way. I wanted an easy-to-use setup where I could define tools and functions separately and have my chatbot intelligently decide when to call them. Here's how I built it.
 
 ## The Idea
 
-OpenAI's API platform has its own Playground where you can test function calling, but I wanted a way to be able to test my own local code. I wanted a local chatbot that:
+OpenAI's API platform has its own Playground where you can test function calling, but I wanted a way to be able to test my own local code. The goal was to have a chatbot that:
 
 1. Receives user messages via a web interface.
 2. Sends the messages to OpenAI's API, which decides if a function needs to be called.
@@ -220,7 +220,7 @@ def serve_index():
     return send_from_directory(os.path.join(os.path.dirname(__file__), "frontend"), "index.html")
 ```
 
-This serves the chatbot's front-end.
+This serves the chatbot's front-end where we can test the functions.
 
 ### 8. Running the App
 
@@ -237,11 +237,20 @@ To make deployment easy, I created a `Dockerfile`:
 
 ```dockerfile
 FROM python:3.9-slim
+
+# Set the working directory in the container
 WORKDIR /app
+
+# Copy requirements and install them
 COPY app/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
+
+# Expose port 5000 for the Flask app
 EXPOSE 5000
+
+# Run the Flask app
 CMD ["python", "/app/main.py"]
+
 ```
 
 ## The Frontend
