@@ -2,6 +2,7 @@
 import { siteConfig } from '@/data/site.config'
 import TwitterColorIcon from './icons/TwitterColorIcon.astro'
 import LinkedinColorIcon from './icons/LinkedinColorIcon.astro'
+import BlueskyColorIcon from './icons/BlueskyColorIcon.astro'
 const message = siteConfig.shareMessage
 
 const URL = Astro.url.href
@@ -16,6 +17,14 @@ const URL = Astro.url.href
 				aria-label='Share on Twitter'><TwitterColorIcon /></a
 			>
 		</li>
+		<li>
+            <a
+                href={`https://bsky.app/share?text=${message + ' ' + URL}`}
+                aria-label='Share on Bluesky'
+            >
+                <BlueskyColorIcon /></a
+            >
+        </li>
 		<li>
 			<a
 				href={`https://www.linkedin.com/shareArticle?mini=true&url=${URL}`}
